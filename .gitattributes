@@ -1,0 +1,15 @@
+# Normalize text line endings; Unity reads both.
+* text=auto
+# Unity YAML assets are text but should not be auto-merged line by line
+*.unity     text merge=unityyamlmerge
+*.prefab    text merge=unityyamlmerge
+*.asset     text merge=unityyamlmerge
+*.mat       text merge=unityyamlmerge
+*.meta      text
+# Binary
+*.png   binary
+*.jpg   binary
+*.exr   binary
+*.hdr   binary
+*.zip   binary
+*.dll   binary
