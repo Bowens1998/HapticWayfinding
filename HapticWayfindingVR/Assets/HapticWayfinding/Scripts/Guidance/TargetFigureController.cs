@@ -1,3 +1,4 @@
+using HapticWayfinding.Rig;
 using UnityEngine;
 
 namespace HapticWayfinding.Guidance
@@ -9,7 +10,9 @@ namespace HapticWayfinding.Guidance
         /// <summary>Figure walks in a circle around the participant.</summary>
         Orbit,
         /// <summary>Figure jumps to a random direction around the participant every few seconds.</summary>
-        RandomJump
+        RandomJump,
+        /// <summary>Figure walks around the glass booth to random spots, pauses, then walks on (default).</summary>
+        Wander
     }
 
     /// <summary>
@@ -24,7 +27,10 @@ namespace HapticWayfinding.Guidance
         [Tooltip("Top-down camera used for mouse dragging.")]
         public Camera experimenterCamera;
 
-        public FigureMotion motion = FigureMotion.Manual;
+        [Tooltip("Motion at start. G cycles Wander -> Manual -> Orbit -> RandomJump.")]
+        public FigureMotion startMotion = FigureMotion.Wander;
+        /// <summary>Current motion (runtime state; the start value comes from startMotion).</summary>
+        [System.NonSerialized] public FigureMotion motion;
         [Tooltip("Distance from the participant for Orbit / RandomJump / number-key placement (m).")]
         public float radius = 2.5f;
         [Tooltip("Keep the figure inside this square (half size, m) around the world origin (clear of furniture along the walls).")]
@@ -36,13 +42,25 @@ namespace HapticWayfinding.Guidance
         public float randomJumpInterval = 5f;
         [Tooltip("RandomJump: snap random directions to multiples of 45 deg (column centres).")]
         public bool randomJumpSnapTo45 = false;
+        [Header("Wander")]
+        [Tooltip("Walking speed (m/s).")]
+        public float wanderSpeed = 1.0f;
+        [Tooltip("Distance from the booth centre the figure walks at (m). Inner edge clears the booth corners, outer edge stays inside the two structural columns.")]
+        public Vector2 wanderRadius = new Vector2(2.6f, 3.6f);
+        [Tooltip("How far around the booth (deg) each walk goes before the next stop.")]
+        public Vector2 wanderTurnDeg = new Vector2(50f, 200f);
+        [Tooltip("Pause at each stop (s). While standing the figure turns to face the participant.")]
+        public Vector2 wanderPause = new Vector2(0.5f, 3f);
         [Tooltip("Turn the figure to face its walking direction.")]
         public bool faceMovement = true;
 
         public float LastJumpTime { get; private set; }
         public float LastPlacedBearing { get; private set; } = float.NaN;
 
+        ViewController view;
         float orbitAngle;
+        float wanderAngle, wanderR, wanderWait;
+        bool wanderHasTarget;
         float jumpTimer;
         bool dragging;
         Vector3 lastPos;
@@ -51,7 +69,18 @@ namespace HapticWayfinding.Guidance
         {
             if (participant == null && Camera.main != null) participant = Camera.main.transform;
             if (guide == null) guide = FindObjectOfType<DirectionalHapticGuide>();
+            motion = startMotion;
+            view = FindObjectOfType<ViewController>();
             lastPos = transform.position;
+        }
+
+        public void CycleMotion()
+        {
+            // Wander -> Manual -> Orbit -> RandomJump -> Wander
+            motion = motion == FigureMotion.Wander ? FigureMotion.Manual
+                : motion == FigureMotion.RandomJump ? FigureMotion.Wander
+                : (FigureMotion)((int)motion + 1);
+            wanderHasTarget = false;
         }
 
         void Update()
@@ -61,6 +90,7 @@ namespace HapticWayfinding.Guidance
                 case FigureMotion.Manual: UpdateManual(); break;
                 case FigureMotion.Orbit: UpdateOrbit(); break;
                 case FigureMotion.RandomJump: UpdateRandomJump(); break;
+                case FigureMotion.Wander: UpdateWander(); break;
             }
             HandleMouseDrag();
             ClampToArea();
@@ -97,6 +127,41 @@ namespace HapticWayfinding.Guidance
             PlaceAtRelativeBearing(b);
         }
 
+        /// <summary>
+        /// Walk in polar coordinates around the booth centre (world origin): angle and radius are blended
+        /// together, so the path curves around the glass instead of cutting through it.
+        /// </summary>
+        void UpdateWander()
+        {
+            Vector3 p = transform.position;
+            float a = Mathf.Atan2(p.x, p.z) * Mathf.Rad2Deg;
+            float r = new Vector2(p.x, p.z).magnitude;
+
+            if (!wanderHasTarget)
+            {
+                float turn = Random.Range(wanderTurnDeg.x, wanderTurnDeg.y) * (Random.value < 0.5f ? -1f : 1f);
+                wanderAngle = a + turn;
+                wanderR = Random.Range(wanderRadius.x, wanderRadius.y);
+                wanderHasTarget = true;
+            }
+            if (wanderWait > 0f) { wanderWait -= Time.deltaTime; return; }
+
+            float da = Mathf.DeltaAngle(a, wanderAngle);
+            float dr = wanderR - r;
+            float arc = Mathf.Abs(da) * Mathf.Deg2Rad * Mathf.Max(r, wanderRadius.x);
+            float remaining = Mathf.Sqrt(arc * arc + dr * dr);
+            if (remaining < 0.05f)
+            {
+                wanderWait = Random.Range(wanderPause.x, wanderPause.y);
+                wanderHasTarget = false;
+                return;
+            }
+            float f = Mathf.Clamp01(wanderSpeed * Time.deltaTime / remaining);
+            float na = (a + da * f) * Mathf.Deg2Rad;
+            float nr = r + dr * f;
+            SetPosition(new Vector3(Mathf.Sin(na) * nr, p.y, Mathf.Cos(na) * nr));
+        }
+
         /// <summary>Place the figure at a bearing relative to the participant's current facing direction.</summary>
         public void PlaceAtRelativeBearing(float bearingDeg)
         {
@@ -119,18 +184,20 @@ namespace HapticWayfinding.Guidance
         {
             if (experimenterCamera == null || !experimenterCamera.isActiveAndEnabled) return;
             Vector3 mp = Input.mousePosition;
-            Rect r = experimenterCamera.pixelRect;
-            if (Input.GetMouseButtonDown(0) && r.Contains(mp)) dragging = true;
+            bool inset = view != null && view.IsInset;
+            Vector2 vp = default;
+            bool over = inset ? view.TryMouseToMapViewport(mp, out vp) : experimenterCamera.pixelRect.Contains(mp);
+            if (Input.GetMouseButtonDown(0) && over) dragging = true;
             if (Input.GetMouseButtonUp(0)) dragging = false;
-            if (!dragging) return;
+            if (!dragging || (inset && !over)) return;
 
-            Ray ray = experimenterCamera.ScreenPointToRay(mp);
+            Ray ray = inset ? experimenterCamera.ViewportPointToRay(new Vector3(vp.x, vp.y, 0f)) : experimenterCamera.ScreenPointToRay(mp);
             var ground = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
             if (ground.Raycast(ray, out float enter))
             {
                 Vector3 hit = ray.GetPoint(enter);
                 SetPosition(new Vector3(hit.x, transform.position.y, hit.z));
-                if (motion != FigureMotion.Manual) motion = FigureMotion.Manual;
+                if (motion != FigureMotion.Manual) { motion = FigureMotion.Manual; wanderHasTarget = false; }
             }
         }
 

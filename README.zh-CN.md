@@ -144,16 +144,16 @@ HapticWayfinding/
 |---|---|
 | 1–8 | 把小人放到相对于受试者当前朝向的 0/45/…/315° 方向（半径 2.5 m）|
 | 方向键 / 地图上左键拖动 | 手动移动小人（小人不会进入玻璃隔间，也不会走进墙边的家具）|
-| G | 小人运动方式：Manual / Orbit（环绕）/ RandomJump（随机方位跳）|
+| G | 小人运动方式：Wander（默认，在玻璃隔间外走来走去，走到一处停一会儿再走）/ Manual / Orbit（环绕）/ RandomJump（随机方位跳）|
 | M | 编码：AdjacentPair（相邻两列，默认）/ SingleColumn（单列）/ Interpolated（插值）/ Off |
 | N | 距离编码：None / PulseRate（越近脉冲越快）/ Intensity（越近越强）|
 | V | 头显画面：FigureVisible / FigureHidden（默认，看不见小人）/ Blindfold（全黑）|
-| Tab | 桌面窗口布局：头显画面 + 俯视地图 / 只显示地图 / 只显示头显画面 |
+| Tab | 桌面窗口布局：Inset（默认，头显画面铺满窗口，右下角是小地图和背心面板）/ 头显画面 + 俯视地图左右并排 / 只显示地图 / 只显示头显画面 |
 | H | 振动总开关；`+` / `-` 调总强度 |
 | C / K / J / X | 列测试 / 旋转扫描 / 逐马达测试 / 停止测试 |
 | L | 开始 / 停止记录 CSV（保存在 `HapticWayfindingVR/Logs/`，不会上传到 git）|
 | F5 / F6 / F7 / F8 | 发送格式（VestFront+VestBack ↔ Vest 40 点）/ 前片左右翻转 / 后片左右翻转 / 恢复默认（自动保存）|
-| F1 / F2 | 隐藏或显示帮助 / 背心可视化 |
+| F1 / F2 | 显示或隐藏按键说明和完整状态（默认隐藏）/ 背心可视化 |
 
 ## 8. 已知问题与注意事项
 

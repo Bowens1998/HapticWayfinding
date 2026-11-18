@@ -9,7 +9,8 @@ namespace HapticWayfinding.UI
 {
     /// <summary>
     /// Experimenter keyboard controls + status panel on the desktop window.
-    /// Press F1 to show / hide the key list.
+    /// Press F1 to show / hide the key list and the full status (vest mapping etc.).
+    /// By default only a compact status block is shown, so the headset mirror stays visible.
     /// </summary>
     public class ExperimenterHUD : MonoBehaviour
     {
@@ -22,7 +23,9 @@ namespace HapticWayfinding.UI
         public HapticVestVisualizer visualizer;
         public HmdPoseDriver hmd;
 
-        public bool showHelp = true;
+        [Tooltip("Show the key list and full status at start (F1 toggles).")]
+        public bool showHelpOnStart = false;
+        [System.NonSerialized] public bool showHelp;
         GUIStyle box;
 
         void Awake()
@@ -35,6 +38,7 @@ namespace HapticWayfinding.UI
             if (logger == null) logger = FindObjectOfType<SessionLogger>();
             if (visualizer == null) visualizer = FindObjectOfType<HapticVestVisualizer>();
             if (hmd == null) hmd = FindObjectOfType<HmdPoseDriver>();
+            showHelp = showHelpOnStart;
         }
 
         void Update()
@@ -47,7 +51,7 @@ namespace HapticWayfinding.UI
             if (Input.GetKeyDown(KeyCode.N)) { guide.distanceCue = (DistanceCue)(((int)guide.distanceCue + 1) % 3); Mark("distcue_" + guide.distanceCue); }
             if (Input.GetKeyDown(KeyCode.V)) { view.CycleCondition(); Mark("visual_" + view.condition); }
             if (Input.GetKeyDown(KeyCode.Tab)) view.CycleLayout();
-            if (Input.GetKeyDown(KeyCode.G)) { figure.motion = (FigureMotion)(((int)figure.motion + 1) % 3); Mark("figure_" + figure.motion); }
+            if (Input.GetKeyDown(KeyCode.G)) { figure.CycleMotion(); Mark("figure_" + figure.motion); }
             if (Input.GetKeyDown(KeyCode.C)) calibration.RunColumnTest();
             if (Input.GetKeyDown(KeyCode.K)) calibration.RunSweep();
             if (Input.GetKeyDown(KeyCode.J)) calibration.RunMotorTest();
@@ -96,19 +100,28 @@ namespace HapticWayfinding.UI
             string rec = logger.IsRecording ? "<color=#f55>REC</color> " + System.IO.Path.GetFileName(logger.CurrentFile) : "not recording";
             string calib = calibration != null && calibration.CurrentStep.Length > 0 ? "\n<b>Calibration:</b> <color=#ff7>" + calibration.CurrentStep + "</color>" : "";
 
-            string status =
-                "<b>Haptic Wayfinding</b>\n" +
-                "XR: " + xr + "\n" +
-                "Vest: " + vest + "\n" +
-                $"Bearing: <b>{guide.Bearing:+0;-0;0} deg</b>   Distance: {guide.Distance:0.00} m\n" +
-                $"Active: <b>{col}</b>\n" +
-                $"Mode: {guide.mode}   Distance cue: {guide.distanceCue}   Intensity x{output.masterIntensity:0.0}   Haptics: {(output.hapticsEnabled ? "ON" : "OFF")}\n" +
-                $"Visual: {view.condition}   Figure: {figure.motion}\n" +
-                $"Vest mapping: send as {(output.useSingleVestPosition ? "Vest (40)" : "VestFront+VestBack")} [F5]   " +
-                $"front idx0 = wearer's {(output.layout.frontIndex0IsWearersLeft ? "LEFT" : "RIGHT")} [F6]   " +
-                $"back idx0 = wearer's {(output.layout.backIndex0IsWearersLeft ? "LEFT" : "RIGHT")} [F7]\n" +
-                "Log: " + rec + calib;
-            GUILayout.BeginArea(new Rect(10, 10, 520, Screen.height - 20));
+            string status;
+            if (showHelp)
+                status =
+                    "<b>Haptic Wayfinding</b>\n" +
+                    "XR: " + xr + "\n" +
+                    "Vest: " + vest + "\n" +
+                    $"Bearing: <b>{guide.Bearing:+0;-0;0} deg</b>   Distance: {guide.Distance:0.00} m\n" +
+                    $"Active: <b>{col}</b>\n" +
+                    $"Mode: {guide.mode}   Distance cue: {guide.distanceCue}   Intensity x{output.masterIntensity:0.0}   Haptics: {(output.hapticsEnabled ? "ON" : "OFF")}\n" +
+                    $"Visual: {view.condition}   Figure: {figure.motion}   Layout: {view.layout}\n" +
+                    $"Vest mapping: send as {(output.useSingleVestPosition ? "Vest (40)" : "VestFront+VestBack")} [F5]   " +
+                    $"front idx0 = wearer's {(output.layout.frontIndex0IsWearersLeft ? "LEFT" : "RIGHT")} [F6]   " +
+                    $"back idx0 = wearer's {(output.layout.backIndex0IsWearersLeft ? "LEFT" : "RIGHT")} [F7]\n" +
+                    "Log: " + rec + calib;
+            else
+                status =
+                    "XR: " + xr + "\n" +
+                    "Vest: " + vest + "\n" +
+                    $"Bearing <b>{guide.Bearing:+0;-0;0}</b>  {guide.Distance:0.0} m   <b>{col}</b>\n" +
+                    $"{guide.mode} | {view.condition} | figure {figure.motion} | haptics {(output.hapticsEnabled ? "ON" : "OFF")}\n" +
+                    "Log: " + rec + "    <i>F1 keys / details</i>" + calib;
+            GUILayout.BeginArea(new Rect(10, 10, showHelp ? 520 : 400, Screen.height - 20));
             GUILayout.Label(status, box);
             GUILayout.BeginHorizontal();
             GUILayout.Label("Participant ID", GUILayout.Width(95));
@@ -121,9 +134,9 @@ namespace HapticWayfinding.UI
                 GUILayout.Label(
                     "<b>Keys</b> (F1 hide)\n" +
                     "1-8  put figure at front / front-right / right / back-right / back / back-left / left / front-left\n" +
-                    "Arrows / left-drag on map  move figure     G  figure motion: Manual / Orbit / RandomJump\n" +
+                    "Arrows / left-drag on map  move figure     G  figure motion: Wander / Manual / Orbit / RandomJump\n" +
                     "M  guidance: AdjacentPair / SingleColumn / Interpolated / Off     N  distance cue: None / PulseRate / Intensity\n" +
-                    "V  headset view: FigureVisible / FigureHidden / Blindfold     Tab  desktop layout\n" +
+                    "V  headset view: FigureVisible / FigureHidden / Blindfold     Tab  desktop layout: Inset / Split / MapOnly / HeadsetOnly\n" +
                     "H  haptics on/off     + / -  intensity     F2  vest visualizer\n" +
                     "C  column test     K  sweep     J  motor test     X  stop test\n" +
                     "L  start / stop CSV log\n" +

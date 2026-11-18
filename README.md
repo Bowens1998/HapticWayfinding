@@ -144,16 +144,16 @@ Without a headset the app falls back to a desktop simulator: W/A/S/D to move, Q/
 |---|---|
 | 1–8 | Put the figure at 0/45/…/315° relative to the participant's current facing (radius 2.5 m) |
 | Arrow keys / left-drag on the map | Move the figure manually (it never enters the glass booth or walks into the furniture along the walls) |
-| G | Figure motion: Manual / Orbit / RandomJump |
+| G | Figure motion: Wander (default: walks around the glass booth, pauses, walks on) / Manual / Orbit / RandomJump |
 | M | Encoding: AdjacentPair (default) / SingleColumn / Interpolated / Off |
 | N | Distance cue: None / PulseRate (faster pulses when closer) / Intensity (stronger when closer) |
 | V | Headset view: FigureVisible / FigureHidden (default, figure invisible) / Blindfold (black) |
-| Tab | Desktop layout: headset view + top-down map / map only / headset view only |
+| Tab | Desktop layout: Inset (default: headset view fills the window, small map + vest panel in the bottom-right corner) / headset view + map side by side / map only / headset view only |
 | H | Haptics on/off; `+` / `-` master intensity |
 | C / K / J / X | Column test / rotating sweep / motor-by-motor test / stop test |
 | L | Start / stop CSV logging (saved in `HapticWayfindingVR/Logs/`, never committed to git) |
 | F5 / F6 / F7 / F8 | Send format (VestFront+VestBack ↔ Vest 40-point) / flip front L-R / flip back L-R / reset (saved automatically) |
-| F1 / F2 | Hide/show help / vest visualiser |
+| F1 / F2 | Show/hide the key list and full status (hidden by default) / vest visualiser |
 
 ## 8. Known issues and notes
 

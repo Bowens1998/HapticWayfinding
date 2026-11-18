@@ -1,5 +1,6 @@
 using HapticWayfinding.Guidance;
 using HapticWayfinding.Haptics;
+using HapticWayfinding.Rig;
 using UnityEngine;
 
 namespace HapticWayfinding.UI
@@ -14,7 +15,10 @@ namespace HapticWayfinding.UI
     {
         public HapticVestOutput output;
         public DirectionalHapticGuide guide;
+        [Tooltip("Inset layout: the panel is sized and placed by the ViewController (bottom-right, under the map).")]
+        public ViewController view;
         public bool show = true;
+        [Tooltip("Panel scale in the non-inset layouts.")]
         public float scale = 1f;
 
         Texture2D circle;
@@ -24,6 +28,7 @@ namespace HapticWayfinding.UI
         {
             if (output == null) output = FindObjectOfType<HapticVestOutput>();
             if (guide == null) guide = FindObjectOfType<DirectionalHapticGuide>();
+            if (view == null) view = FindObjectOfType<ViewController>();
             circle = MakeCircle(64);
         }
 
@@ -49,15 +54,24 @@ namespace HapticWayfinding.UI
         void OnGUI()
         {
             if (!show || output == null) return;
+            float s = scale;
+            Rect panel;
+            if (view != null && view.IsInset)
+                view.GetInsetRects(out panel, out _, out s);
+            else
+            {
+                float pw = ViewController.VestPanelW * s, ph = ViewController.VestPanelH * s;
+                panel = new Rect(Screen.width - pw - 10, Screen.height - ph - 10, pw, ph);
+            }
+            float panelH = panel.height;
+            drawScale = s;
+
             if (label == null)
             {
-                label = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(12 * scale) };
+                label = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
                 label.normal.textColor = Color.white;
             }
-
-            float s = scale;
-            float panelW = 470 * s, panelH = 230 * s;
-            var panel = new Rect(Screen.width - panelW - 10, Screen.height - panelH - 10, panelW, panelH);
+            label.fontSize = Mathf.Max(9, Mathf.RoundToInt(12 * s));
             GUI.Box(panel, GUIContent.none);
 
             VestFrame f = output.CurrentOutput;
@@ -96,8 +110,11 @@ namespace HapticWayfinding.UI
             GUI.Label(new Rect(panel.x + 215 * s, panel.y + panelH - 22 * s, 250 * s, 20 * s), state, label);
         }
 
+        float drawScale = 1f;
+
         void DrawGrid(Rect r, float[] values, string title)
         {
+            float scale = drawScale;
             GUI.Label(new Rect(r.x - 10, r.y - 22 * scale, r.width + 20, 20 * scale), title, label);
             float cw = r.width / VestLayout.Columns, rh = r.height / VestLayout.Rows;
             float d = Mathf.Min(cw, rh) * 0.75f;

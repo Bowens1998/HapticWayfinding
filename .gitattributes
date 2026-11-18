@@ -5,6 +5,8 @@
 *.prefab    text merge=unityyamlmerge
 *.asset     text merge=unityyamlmerge
 *.mat       text merge=unityyamlmerge
+# Baked lighting data is a BINARY .asset: without this, Windows checkouts insert CR bytes and Unity cannot load it
+**/LightingData.asset binary
 *.meta      text
 # Binary
 *.png   binary
