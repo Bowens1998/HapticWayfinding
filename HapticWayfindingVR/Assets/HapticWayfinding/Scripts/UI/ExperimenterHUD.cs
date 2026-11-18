@@ -51,6 +51,12 @@ namespace HapticWayfinding.UI
             if (Input.GetKeyDown(KeyCode.N)) { guide.distanceCue = (DistanceCue)(((int)guide.distanceCue + 1) % 3); Mark("distcue_" + guide.distanceCue); }
             if (Input.GetKeyDown(KeyCode.V)) { view.CycleCondition(); Mark("visual_" + view.condition); }
             if (Input.GetKeyDown(KeyCode.Tab)) view.CycleLayout();
+            if (Input.GetKeyDown(KeyCode.R) && hmd != null)
+            {
+                bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                if (shift) { hmd.ClearRecenter(); Mark("recenter_clear"); }
+                else { hmd.Recenter(); Mark("recenter"); }
+            }
             if (Input.GetKeyDown(KeyCode.G)) { figure.CycleMotion(); Mark("figure_" + figure.motion); }
             if (Input.GetKeyDown(KeyCode.C)) calibration.RunColumnTest();
             if (Input.GetKeyDown(KeyCode.K)) calibration.RunSweep();
@@ -109,7 +115,7 @@ namespace HapticWayfinding.UI
                     $"Bearing: <b>{guide.Bearing:+0;-0;0} deg</b>   Distance: {guide.Distance:0.00} m\n" +
                     $"Active: <b>{col}</b>\n" +
                     $"Mode: {guide.mode}   Distance cue: {guide.distanceCue}   Intensity x{output.masterIntensity:0.0}   Haptics: {(output.hapticsEnabled ? "ON" : "OFF")}\n" +
-                    $"Visual: {view.condition}   Figure: {figure.motion}   Layout: {view.layout}\n" +
+                    $"Visual: {view.condition}   Figure: {figure.motion}   Layout: {view.layout}   Recentered: {(hmd != null && hmd.IsRecentered ? "yes [R / Shift+R]" : "no [R]")}\n" +
                     $"Vest mapping: send as {(output.useSingleVestPosition ? "Vest (40)" : "VestFront+VestBack")} [F5]   " +
                     $"front idx0 = wearer's {(output.layout.frontIndex0IsWearersLeft ? "LEFT" : "RIGHT")} [F6]   " +
                     $"back idx0 = wearer's {(output.layout.backIndex0IsWearersLeft ? "LEFT" : "RIGHT")} [F7]\n" +
@@ -136,7 +142,8 @@ namespace HapticWayfinding.UI
                     "1-8  put figure at front / front-right / right / back-right / back / back-left / left / front-left\n" +
                     "Arrows / left-drag on map  move figure     G  figure motion: Wander / Manual / Orbit / RandomJump\n" +
                     "M  guidance: AdjacentPair / SingleColumn / Interpolated / Off     N  distance cue: None / PulseRate / Intensity\n" +
-                    "V  headset view: FigureVisible / FigureHidden / Blindfold     Tab  desktop layout: Inset / Split / MapOnly / HeadsetOnly\n" +
+                    "V  booth glass: clear / frosted (fades)     Tab  desktop layout: Inset / Split / MapOnly / HeadsetOnly\n" +
+                    "R  recenter: participant's current spot = booth centre, current heading = forward (saved)     Shift+R  undo\n" +
                     "H  haptics on/off     + / -  intensity     F2  vest visualizer\n" +
                     "C  column test     K  sweep     J  motor test     X  stop test\n" +
                     "L  start / stop CSV log\n" +

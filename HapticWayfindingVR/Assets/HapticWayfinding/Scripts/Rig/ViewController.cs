@@ -4,12 +4,10 @@ namespace HapticWayfinding.Rig
 {
     public enum VisualCondition
     {
-        /// <summary>Participant sees the room and the figure.</summary>
-        FigureVisible,
-        /// <summary>Participant sees the room but NOT the figure: direction only from the vest (default, as in the video).</summary>
-        FigureHidden,
-        /// <summary>Headset shows black: haptics only.</summary>
-        Blindfold
+        /// <summary>Booth glass is clear: the participant sees the room and the walking figure.</summary>
+        ClearGlass,
+        /// <summary>Booth glass is frosted (opaque): the figure is still there but cannot be seen; direction only from the vest (default, as in the video).</summary>
+        FrostedGlass
     }
 
     public enum ExperimenterLayout
@@ -25,17 +23,26 @@ namespace HapticWayfinding.Rig
     }
 
     /// <summary>
-    /// Controls what the participant's headset camera renders and how the experimenter's
+    /// Controls what the participant sees (clear vs frosted booth glass) and how the experimenter's
     /// top-down camera is laid out on the desktop window.
-    /// Layers (created by the setup script):
-    ///   "TargetFigure"     – the little person; hidden from the headset in FigureHidden / Blindfold.
-    ///   "ExperimenterOnly" – participant marker, direction line, etc.; never shown in the headset.
+    /// The figure is never culled from the headset: hiding it is done by frosting the glass booth,
+    /// with a short fade, so it does not vanish abruptly.
+    /// Layer "ExperimenterOnly" (participant marker, direction line, etc.) is never shown in the headset.
     /// </summary>
     public class ViewController : MonoBehaviour
     {
         public Camera headsetCamera;
         public Camera experimenterCamera;
-        public VisualCondition condition = VisualCondition.FigureHidden;
+        public VisualCondition condition = VisualCondition.FrostedGlass;
+
+        [Header("Booth glass")]
+        [Tooltip("Booth glass renderers. Empty = all renderers under the 'GlassBooth' object whose material is the glass material.")]
+        public Renderer[] boothGlass;
+        [Tooltip("Frosted (opaque) glass colour; alpha 1 = nothing visible through it.")]
+        public Color frostedColor = new Color(0.86f, 0.89f, 0.9f, 1f);
+        [Range(0f, 1f)] public float frostedSmoothness = 0.35f;
+        [Tooltip("Clear <-> frosted fade time (s).")]
+        public float glassFadeSeconds = 0.8f;
         [Tooltip("Desktop layout at start. Tab cycles Inset -> Split -> MapOnly -> HeadsetOnly.")]
         public ExperimenterLayout startLayout = ExperimenterLayout.Inset;
         [Tooltip("Inset layout: width of the bottom-right map + vest panel, as a fraction of the window width.")]
@@ -48,22 +55,58 @@ namespace HapticWayfinding.Rig
         public const float VestPanelW = 470f, VestPanelH = 230f;
         const float Margin = 10f, Gap = 6f;
 
-        int figureLayer, experimenterLayer;
+        int experimenterLayer;
         int baseMask;
-        CameraClearFlags baseClear;
-        Color baseBackground;
+        Material glassMat;               // runtime copy shared by all booth glass panels (the .mat asset is never modified)
+        Color clearColor;
+        float clearSmoothness, frost;
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor"), SmoothnessId = Shader.PropertyToID("_Smoothness");
 
         void Awake()
         {
             if (headsetCamera == null) headsetCamera = Camera.main;
-            figureLayer = LayerMask.NameToLayer("TargetFigure");
             experimenterLayer = LayerMask.NameToLayer("ExperimenterOnly");
             baseMask = ~0;
             if (experimenterLayer >= 0) baseMask &= ~(1 << experimenterLayer);
-            baseClear = headsetCamera.clearFlags;
-            baseBackground = headsetCamera.backgroundColor;
+            SetupGlass();
+            frost = condition == VisualCondition.FrostedGlass ? 1f : 0f;
+            ApplyFrost();
             layout = startLayout;
             Apply();
+        }
+
+        void SetupGlass()
+        {
+            if (boothGlass == null || boothGlass.Length == 0)
+            {
+                var booth = GameObject.Find("GlassBooth");
+                var list = new System.Collections.Generic.List<Renderer>();
+                if (booth != null)
+                    foreach (var r in booth.GetComponentsInChildren<Renderer>())
+                        if (r.sharedMaterial != null && r.sharedMaterial.name.StartsWith("Glass")) list.Add(r);
+                boothGlass = list.ToArray();
+            }
+            if (boothGlass.Length == 0 || boothGlass[0] == null) { Debug.LogWarning("[HapticWayfinding] Booth glass not found; V will have no visible effect."); return; }
+            glassMat = new Material(boothGlass[0].sharedMaterial) { name = "Glass (runtime)" };
+            clearColor = glassMat.GetColor(BaseColorId);
+            clearSmoothness = glassMat.GetFloat(SmoothnessId);
+            foreach (var r in boothGlass) if (r != null) r.sharedMaterial = glassMat;
+        }
+
+        void Update()
+        {
+            float target = condition == VisualCondition.FrostedGlass ? 1f : 0f;
+            if (Mathf.Approximately(frost, target)) return;
+            frost = Mathf.MoveTowards(frost, target, Time.deltaTime / Mathf.Max(0.01f, glassFadeSeconds));
+            ApplyFrost();
+        }
+
+        void ApplyFrost()
+        {
+            if (glassMat == null) return;
+            float t = Mathf.SmoothStep(0f, 1f, frost);
+            glassMat.SetColor(BaseColorId, Color.Lerp(clearColor, frostedColor, t));
+            glassMat.SetFloat(SmoothnessId, Mathf.Lerp(clearSmoothness, frostedSmoothness, t));
         }
 
         // Inset map: the top-down camera renders into a RenderTexture that OnGUI draws right above the
@@ -106,6 +149,7 @@ namespace HapticWayfinding.Rig
         void OnDestroy()
         {
             if (mapTexture != null) mapTexture.Release();
+            if (glassMat != null) Destroy(glassMat);
         }
 
         public bool IsInset => layout == ExperimenterLayout.Inset;
@@ -127,8 +171,7 @@ namespace HapticWayfinding.Rig
 
         public void CycleCondition()
         {
-            condition = (VisualCondition)(((int)condition + 1) % 3);
-            Apply();
+            condition = condition == VisualCondition.FrostedGlass ? VisualCondition.ClearGlass : VisualCondition.FrostedGlass;
         }
 
         public void CycleLayout()
@@ -142,27 +185,7 @@ namespace HapticWayfinding.Rig
 
         public void Apply()
         {
-            if (headsetCamera != null)
-            {
-                switch (condition)
-                {
-                    case VisualCondition.FigureVisible:
-                        headsetCamera.cullingMask = baseMask;
-                        headsetCamera.clearFlags = baseClear;
-                        headsetCamera.backgroundColor = baseBackground;
-                        break;
-                    case VisualCondition.FigureHidden:
-                        headsetCamera.cullingMask = figureLayer >= 0 ? baseMask & ~(1 << figureLayer) : baseMask;
-                        headsetCamera.clearFlags = baseClear;
-                        headsetCamera.backgroundColor = baseBackground;
-                        break;
-                    case VisualCondition.Blindfold:
-                        headsetCamera.cullingMask = 0;
-                        headsetCamera.clearFlags = CameraClearFlags.SolidColor;
-                        headsetCamera.backgroundColor = Color.black;
-                        break;
-                }
-            }
+            if (headsetCamera != null) headsetCamera.cullingMask = baseMask;
 
             if (experimenterCamera != null)
             {

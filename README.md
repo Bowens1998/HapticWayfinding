@@ -135,7 +135,7 @@ Without a headset the app falls back to a desktop simulator: W/A/S/D to move, Q/
    ```
    If left/right is swapped, press `F6` (front) / `F7` (back) in the demo; the setting is saved automatically.
 3. **Headset**: SteamVR running, base stations OK, headset and base-station icons green.
-4. **Unity**: Play → HUD shows `HMD tracking` and `Vest: Connected` → press `C` for the column test and `K` for the sweep.
+4. **Unity**: Play → HUD shows `HMD tracking` and `Vest: Connected` → have the participant stand where the booth should be, facing forward, and press `R` (saved, only needed once per room setup) → press `C` for the column test and `K` for the sweep.
 5. **Function check**: press number keys 1–8 to put the figure in each direction; the wearer should feel vibration at the matching location, and the active columns should follow when they turn.
 
 ## 7. Experimenter keys
@@ -143,11 +143,12 @@ Without a headset the app falls back to a desktop simulator: W/A/S/D to move, Q/
 | Key | Function |
 |---|---|
 | 1–8 | Put the figure at 0/45/…/315° relative to the participant's current facing (radius 2.5 m) |
+| R / Shift+R | Recenter: the participant's current spot becomes the booth centre and their heading becomes forward (saved per machine) / undo |
 | Arrow keys / left-drag on the map | Move the figure manually (it never enters the glass booth or walks into the furniture along the walls) |
 | G | Figure motion: Wander (default: walks around the glass booth, pauses, walks on) / Manual / Orbit / RandomJump |
 | M | Encoding: AdjacentPair (default) / SingleColumn / Interpolated / Off |
 | N | Distance cue: None / PulseRate (faster pulses when closer) / Intensity (stronger when closer) |
-| V | Headset view: FigureVisible / FigureHidden (default, figure invisible) / Blindfold (black) |
+| V | Booth glass: FrostedGlass (default, opaque: the figure keeps walking but cannot be seen) / ClearGlass (figure visible). Fades over ~0.8 s so the figure never vanishes abruptly |
 | Tab | Desktop layout: Inset (default: headset view fills the window, small map + vest panel in the bottom-right corner) / headset view + map side by side / map only / headset view only |
 | H | Haptics on/off; `+` / `-` master intensity |
 | C / K / J / X | Column test / rotating sweep / motor-by-motor test / stop test |
@@ -164,4 +165,4 @@ Without a headset the app falls back to a desktop simulator: W/A/S/D to move, Q/
   - `tools/latency_test.ps1` tells apart "too many changes" from "the Bluetooth link itself is degrading".
 - The row of red / yellow dots in the bottom-left of the original video could not be interpreted and is not reproduced.
 - Direction uses the **headset** orientation by default. For torso orientation (cue unchanged when only the head turns), strap a VIVE Tracker to the chest and point `DirectionalHapticGuide.body` at it.
-- **Safety**: in Blindfold mode the participant sees nothing — always have a spotter and keep the area clear of obstacles.
+- **Safety**: the participant is fully immersed and cannot see the real room — always have a spotter and keep the area clear of obstacles.
