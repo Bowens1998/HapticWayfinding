@@ -34,7 +34,7 @@ namespace HapticWayfinding.Haptics
         [Tooltip("bHaptics VestFront: is device index 0 on the wearer's LEFT? Verified in the lab 2026-11-18 (default was mirrored).")]
         public bool frontIndex0IsWearersLeft = true;
 
-        [Tooltip("bHaptics VestBack: is device index 0 on the wearer's LEFT? Verify with the column calibration (key C).")]
+        [Tooltip("bHaptics VestBack: is device index 0 on the wearer's LEFT? Verified in the lab 2026-11-18 (column test matched).")]
         public bool backIndex0IsWearersLeft = true;
 
         public float ColumnAngle(VestSide side, int wearerCol)
